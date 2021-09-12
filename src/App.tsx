@@ -1,8 +1,7 @@
 import React from 'react';
 import './App.css';
 import { ethers, providers } from 'ethers';
-import Greeter from './abis/Greeter.json';
-// import { init } from "@textile/eth-storage";
+import { init } from "@textile/eth-storage";
 
 declare global {
   interface Window {
@@ -22,51 +21,43 @@ class App extends React.Component <any, any> {
     this.state = {
       wallet: null,
       address: "",
-      greetNew: "",
-      getGreeting: "",
+      blob: null,
+      api: null,
+      depositDone: false,
     }
-    this.changeGreeting = this.changeGreeting.bind(this);
-    this.changeGreetingInContract = this.changeGreetingInContract.bind(this);
+    this.readFile = this.readFile.bind(this)
+    this.uploadFile = this.uploadFile.bind(this)
   }
 
-  async changeGreetingInContract(event: any) {
+  async releaseFund() {
+    console.log("releasing ..")
+    this.state.api.releaseDeposit()
+      .then(() => { console.log("if your session is over, your funds should be returned") })
+      .catch((e: Error) => {
+        console.log(e);
+      })
+  }
+
+  readFile(event: any) {
+    event.preventDefault()
+    const file = event.target.files[0]
+    console.log(file);
+    this.setState({ blob: event.target.files[0]})
+  }
+  
+  async uploadFile(event : any) {
     event.preventDefault();
-    console.log(this.state.greetNew)
-
-    const provider = new providers.Web3Provider(window.ethereum);
-    const wallet = provider.getSigner();
-    this.setState({ wallet });
-    const network = await provider.getNetwork();
-
-    const networkData: any = Greeter.networks;
-    const networkId: string = String(network.chainId);
-    const contractAddress: string = networkData[networkId.toString()]['address'];
-    const greeterContract = new ethers.Contract(
-      contractAddress,
-      Greeter.abi,
-      wallet,
-    );
-    const txnResponse = await greeterContract.setGreeting(this.state.greetNew);
-    const txnReceipt = await txnResponse.wait();
-    console.log(txnReceipt);
-    // try {
-    //   const getGreeting = await greeterContract.greet();
-    //   console.log(getGreeting)
-    // } catch (e) {
-    //   console.log(e)
-    // }
-  }
-
-  changeGreeting(e: any) {
-    console.log(e.target.value)
-    this.setState({ greetNew: e.target.value })
+    console.log("uploading");
+    const result = await this.state.api.store(this.state.blob)
+    console.log(result);
+    console.log(result.cid["/"])
   }
 
   async componentWillMount() {
-    await this.initJustEther();
+    await this.initEtherWithBridge();
   }
 
-  async initJustEther() {
+  async initEtherWithBridge() {
     if (!window.ethereum) {
       throw new Error(
         "No web3 provider found. Please install metamask browser extension."
@@ -78,43 +69,40 @@ class App extends React.Component <any, any> {
     this.setState({ wallet });
     const network = await provider.getNetwork();
     console.log(network);
-    // if (SUPPORTED_NETWORKS.indexOf(network.name) === -1) {
-    //   throw new Error(
-    //     `Only ${SUPPORTED_NETWORK_LONG} networks are currently supported. Switch your wallet connection and refresh the webpage.`
-    //   );
-    // }
-    this.setState({ address: await wallet.getAddress() })
-    console.log(this.state.address)
-    const networkData: any = Greeter.networks;
-    const networkId: string = String(network.chainId);
-    console.log(networkData);
-    console.log(networkId)
-    console.log(networkData[networkId.toString()]['address'])
-    const contractAddress: string = networkData[networkId.toString()]['address'];
-    const greeterContract = new ethers.Contract(
-      contractAddress,
-      Greeter.abi,
-      provider,
-    );
-    try {
-      const getGreeting = await greeterContract.greet();
-      this.setState({getGreeting})
-      // console.log(getGreeting)
-    } catch (e) {
-      console.log(e)
+    if (SUPPORTED_NETWORKS.indexOf(network.name) === -1) {
+      throw new Error(
+        `Only ${SUPPORTED_NETWORK_LONG} networks are currently supported. Switch your wallet connection and refresh the webpage.`
+      );
     }
+    this.setState({ address: await wallet.getAddress() })
+    const api = await init(wallet);
+    const address = await wallet.getAddress();
+    this.setState({ api });
+    console.log(api);
+    console.log(address);
 
+    api.hasDeposit().then(() => { this.setState({ depositDone: true }) })
+  }
+
+  depositFundIntoFilecoin() {
+    console.log("depositing")
+    this.state.api.addDeposit().then(() => { this.setState({depositDone: true})})
   }
 
   render() {
+
+      const onStatus = async () => {
+        const result = await this.state.api.status()
+        console.log(result);
+        console.log(result.status_code);
+      };
+
       return (
         <div className= "App">
 
           <div >
             <header className="App-header">
-              {
-                this.state.getGreeting 
-              }
+              Hello
               <p>
               {
                 this.state.address
@@ -122,13 +110,30 @@ class App extends React.Component <any, any> {
               </p>
             </header>
           </div>
-          <form>
-            <input type="text" onChange =  { (e) => this.changeGreeting(e) }/>
-            <button 
-              type = "submit" 
-              onClick = { (e) => this.changeGreetingInContract(e) }
-              className = "btn btn-primary" > Change greeting </button>
-          </form>
+              
+          <button 
+            onClick = { () => this.depositFundIntoFilecoin() }
+            className = "btn btn-primary" > Deposit fund </button>
+            
+          {
+            this.state.depositDone ? (
+              <div>
+                <button 
+                  onClick = { () => this.releaseFund() }
+                  className = "btn btn-primary" > Release fund </button>
+                
+                <form>
+                  <input type="file" onChange =  { (e) => this.readFile(e) }/>
+                  <button 
+                    type = "submit" 
+                    onClick = { (e) => this.uploadFile(e) }
+                    className = "btn btn-primary" > upload file </button>
+                </form>
+                
+              </div>
+            ) : null
+          }
+          
       </div>
       
     );
