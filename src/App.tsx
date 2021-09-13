@@ -1,7 +1,7 @@
 import React from 'react';
 import './App.css';
 import { ethers, providers } from 'ethers';
-import Greeter from './abis/Greeter.json';
+import AnimeCrypto from './abis/AnimeCrypto.json';
 // import { init } from "@textile/eth-storage";
 
 declare global {
@@ -22,11 +22,8 @@ class App extends React.Component <any, any> {
     this.state = {
       wallet: null,
       address: "",
-      greetNew: "",
-      getGreeting: "",
+      contractName: "",
     }
-    this.changeGreeting = this.changeGreeting.bind(this);
-    this.changeGreetingInContract = this.changeGreetingInContract.bind(this);
   }
 
   async changeGreetingInContract(event: any) {
@@ -38,28 +35,17 @@ class App extends React.Component <any, any> {
     this.setState({ wallet });
     const network = await provider.getNetwork();
 
-    const networkData: any = Greeter.networks;
+    const networkData: any = AnimeCrypto.networks;
     const networkId: string = String(network.chainId);
     const contractAddress: string = networkData[networkId.toString()]['address'];
-    const greeterContract = new ethers.Contract(
+    const contract = new ethers.Contract(
       contractAddress,
-      Greeter.abi,
+      AnimeCrypto.abi,
       wallet,
     );
-    const txnResponse = await greeterContract.setGreeting(this.state.greetNew);
-    const txnReceipt = await txnResponse.wait();
-    console.log(txnReceipt);
-    // try {
-    //   const getGreeting = await greeterContract.greet();
-    //   console.log(getGreeting)
-    // } catch (e) {
-    //   console.log(e)
-    // }
-  }
-
-  changeGreeting(e: any) {
-    console.log(e.target.value)
-    this.setState({ greetNew: e.target.value })
+    // const txnResponse = await contract.setGreeting(this.state.greetNew);
+    // const txnReceipt = await txnResponse.wait();
+    // console.log(txnReceipt);
   }
 
   async componentWillMount() {
@@ -78,28 +64,26 @@ class App extends React.Component <any, any> {
     this.setState({ wallet });
     const network = await provider.getNetwork();
     console.log(network);
-    // if (SUPPORTED_NETWORKS.indexOf(network.name) === -1) {
-    //   throw new Error(
-    //     `Only ${SUPPORTED_NETWORK_LONG} networks are currently supported. Switch your wallet connection and refresh the webpage.`
-    //   );
-    // }
+    if (SUPPORTED_NETWORKS.indexOf(network.name) === -1) {
+      throw new Error(
+        `Only ${SUPPORTED_NETWORK_LONG} networks are currently supported. Switch your wallet connection and refresh the webpage.`
+      );
+    }
     this.setState({ address: await wallet.getAddress() })
     console.log(this.state.address)
-    const networkData: any = Greeter.networks;
+    const networkData: any = AnimeCrypto.networks;
     const networkId: string = String(network.chainId);
     console.log(networkData);
     console.log(networkId)
-    console.log(networkData[networkId.toString()]['address'])
     const contractAddress: string = networkData[networkId.toString()]['address'];
     const greeterContract = new ethers.Contract(
       contractAddress,
-      Greeter.abi,
+      AnimeCrypto.abi,
       provider,
     );
     try {
-      const getGreeting = await greeterContract.greet();
-      this.setState({getGreeting})
-      // console.log(getGreeting)
+      const contractName = await greeterContract.name();
+      this.setState({contractName})
     } catch (e) {
       console.log(e)
     }
@@ -113,7 +97,7 @@ class App extends React.Component <any, any> {
           <div >
             <header className="App-header">
               {
-                this.state.getGreeting 
+                this.state.contractName
               }
               <p>
               {
@@ -122,13 +106,6 @@ class App extends React.Component <any, any> {
               </p>
             </header>
           </div>
-          <form>
-            <input type="text" onChange =  { (e) => this.changeGreeting(e) }/>
-            <button 
-              type = "submit" 
-              onClick = { (e) => this.changeGreetingInContract(e) }
-              className = "btn btn-primary" > Change greeting </button>
-          </form>
       </div>
       
     );
