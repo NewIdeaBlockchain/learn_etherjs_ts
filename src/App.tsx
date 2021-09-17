@@ -23,6 +23,7 @@ class App extends React.Component <any, any> {
       wallet: null,
       address: "",
       contractName: "",
+      randomImage: null,
     }
   }
 
@@ -50,6 +51,22 @@ class App extends React.Component <any, any> {
 
   async componentWillMount() {
     await this.initJustEther();
+  }
+
+  async componentDidMount() {
+    const res = await fetch('http://127.0.0.1:8000');
+    const reader = res.body?.getReader();
+    const stream = await reader?.read();
+    const value = stream?.value;
+    // console.log(value)
+    // console.log(value?.buffer)
+    const buffer = value?.buffer
+    if (buffer) {
+      const imageURL = URL.createObjectURL(
+        new Blob([buffer], { type: 'image/png' })
+      );
+      this.setState({ randomImage: imageURL })
+    }
   }
 
   async initJustEther() {
@@ -87,27 +104,19 @@ class App extends React.Component <any, any> {
     } catch (e) {
       console.log(e)
     }
-
   }
 
   render() {
       return (
-        <div className= "App">
-
-          <div >
-            <header className="App-header">
-              {
-                this.state.contractName
-              }
+        <div>
+          <div>
+              {this.state.contractName}
               <p>
-              {
-                this.state.address
-              }
+              {this.state.address}
               </p>
-            </header>
-          </div>
+              <img src={this.state.randomImage} alt = "RandomImage" width="500" height="600" />
+        </div>
       </div>
-      
     );
   }
 }
